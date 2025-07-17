@@ -7,6 +7,7 @@ import {
   Modal,
   useColorScheme,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { CreditCard, X, Shield, DollarSign } from 'lucide-react-native';
 import { Colors } from '@/constants/Colors';

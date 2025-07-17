@@ -15,6 +15,7 @@ import { SettingsSection } from '@/components/SettingsSection';
 import { SettingsItem } from '@/components/SettingsItem';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();

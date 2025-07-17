@@ -7,6 +7,7 @@ import {
   Image,
   Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Calendar, MapPin, Users, Heart } from 'lucide-react-native';
 import { Colors } from '@/constants/Colors';
 import { eventService } from '@/services/eventService';
@@ -24,6 +25,8 @@ interface Event {
   image: string;
   isLiked: boolean;
   organizer: string;
+  type?: 'free' | 'paid';
+  price?: number;
 }
 
 interface EventCardProps {
@@ -34,9 +37,16 @@ interface EventCardProps {
 export function EventCard({ event, isDark }: EventCardProps) {
   const theme = isDark ? Colors.dark : Colors.light;
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const [isJoining, setIsJoining] = useState(false);
 
-  const handleJoinEvent = async () => {
+  const handleEventPress = () => {
+    router.push(`/events/${event.id}`);
+  };
+
+  const handleJoinEvent = async (e: any) => {
+    e.stopPropagation(); // Prevent navigation when joining
+    
     if (!isAuthenticated) {
       Alert.alert('Login Required', 'Please log in to join events');
       return;
@@ -53,21 +63,9 @@ export function EventCard({ event, isDark }: EventCardProps) {
       }
       setIsJoining(false);
     } else {
-      // Navigate to payment screen for paid events
-      Alert.alert(
-        'Purchase Ticket',
-        `This event costs $${event.price}. Would you like to purchase a ticket?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Purchase', onPress: () => handlePurchaseTicket() },
-        ]
-      );
+      // Navigate to event details for paid events
+      router.push(`/events/${event.id}`);
     }
-  };
-
-  const handlePurchaseTicket = async () => {
-    // This would navigate to a payment screen in a real app
-    Alert.alert('Payment', 'Payment processing would be implemented here');
   };
 
   const getCategoryColor = (category: string) => {
@@ -81,7 +79,10 @@ export function EventCard({ event, isDark }: EventCardProps) {
   };
 
   return (
-    <TouchableOpacity style={[styles.container, { backgroundColor: theme.surface }]}>
+    <TouchableOpacity 
+      style={[styles.container, { backgroundColor: theme.surface }]}
+      onPress={handleEventPress}
+    >
       <Image source={{ uri: event.image }} style={styles.image} />
       
       <View style={styles.content}>
@@ -129,7 +130,10 @@ export function EventCard({ event, isDark }: EventCardProps) {
           <Text style={[styles.organizer, { color: theme.textSecondary }]}>
             by {event.organizer}
           </Text>
-          <TouchableOpacity style={[styles.joinButton, { backgroundColor: Colors.primary[500] }]}>
+          <TouchableOpacity 
+            style={[styles.joinButton, { backgroundColor: Colors.primary[500] }]}
+            onPress={handleJoinEvent}
+          >
             <Text style={styles.joinButtonText}>
               {isJoining ? 'Joining...' : event.type === 'paid' ? `$${event.price}` : 'Join Event'}
             </Text>

@@ -1,6 +1,7 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
-import PagerView from 'react-native-pager-view';
+import { ScrollView, StyleSheet, Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 export interface OnboardingPagerRef {
   setPage: (page: number) => void;
@@ -13,23 +14,34 @@ interface OnboardingPagerProps {
 
 export const OnboardingPager = forwardRef<OnboardingPagerRef, OnboardingPagerProps>(
   ({ children, onPageSelected }, ref) => {
-    const pagerViewRef = useRef<PagerView>(null);
+    const scrollViewRef = useRef<ScrollView>(null);
 
     useImperativeHandle(ref, () => ({
       setPage: (page: number) => {
-        pagerViewRef.current?.setPage(page);
+        scrollViewRef.current?.scrollTo({
+          x: page * width,
+          animated: true,
+        });
       },
     }));
 
+    const handleScroll = (event: any) => {
+      const { contentOffset } = event.nativeEvent;
+      const page = Math.round(contentOffset.x / width);
+      onPageSelected({ nativeEvent: { position: page } });
+    };
+
     return (
-      <PagerView
-        ref={pagerViewRef}
+      <ScrollView
+        ref={scrollViewRef}
         style={styles.pager}
-        initialPage={0}
-        onPageSelected={onPageSelected}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handleScroll}
       >
         {children}
-      </PagerView>
+      </ScrollView>
     );
   }
 );
