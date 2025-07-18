@@ -39,12 +39,17 @@ export const OnboardingPager = forwardRef<OnboardingPagerRef, OnboardingPagerPro
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
+        decelerationRate="fast"
+        snapToInterval={width}
+        snapToAlignment="start"
       >
         {children}
       </ScrollView>
     );
   }
 );
+
+OnboardingPager.displayName = 'OnboardingPager';
 
 const styles = StyleSheet.create({
   pager: {

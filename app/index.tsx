@@ -10,6 +10,8 @@ export default function IndexScreen() {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const initializeApp = async () => {
       try {
         // Wait for auth to load
@@ -17,6 +19,8 @@ export default function IndexScreen() {
         
         // Check if onboarding is completed
         const hasCompletedOnboarding = await checkOnboardingCompleted();
+
+        if (!isMounted) return;
 
         if (isAuthenticated) {
           router.replace('/(tabs)');
@@ -27,14 +31,21 @@ export default function IndexScreen() {
         }
       } catch (error) {
         console.error('Error initializing app:', error);
-        // Fallback to onboarding if there's an error
-        router.replace('/onboarding');
+        if (isMounted) {
+          router.replace('/onboarding');
+        }
       } finally {
-        setIsInitializing(false);
+        if (isMounted) {
+          setIsInitializing(false);
+        }
       }
     };
 
     initializeApp();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthenticated, isLoading, router]);
 
   // Show splash screen while initializing
