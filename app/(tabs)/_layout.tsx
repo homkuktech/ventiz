@@ -29,7 +29,6 @@ export default function TabLayout() {
       }}>
       <Tabs.Screen
         name="index"
-        href="/(tabs)"
         options={{
           title: 'Discover',
           tabBarIcon: ({ size, color }) => (
@@ -39,7 +38,6 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="social"
-        href="/(tabs)/social"
         options={{
           title: 'Social Pass',
           tabBarIcon: ({ size, color }) => (
@@ -49,7 +47,6 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="map"
-        href="/(tabs)/map"
         options={{
           title: 'Campus',
           tabBarIcon: ({ size, color }) => (
@@ -59,7 +56,6 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="create"
-        href="/(tabs)/create"
         options={{
           title: 'Create',
           tabBarIcon: ({ size, color }) => (
@@ -69,7 +65,6 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="profile"
-        href="/(tabs)/profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ size, color }) => (
@@ -79,7 +74,6 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="settings"
-        href="/(tabs)/settings"
         options={{
           title: 'Settings',
           tabBarIcon: ({ size, color }) => (

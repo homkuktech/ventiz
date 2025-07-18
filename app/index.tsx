@@ -17,6 +17,11 @@ export default function IndexScreen() {
         // Wait for auth to load
         if (isLoading) return;
         
+        // Add a small delay to ensure everything is ready
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        if (!isMounted) return;
+
         // Check if onboarding is completed
         const hasCompletedOnboarding = await checkOnboardingCompleted();
 
@@ -49,14 +54,6 @@ export default function IndexScreen() {
   }, [isAuthenticated, isLoading, router]);
 
   // Show splash screen while initializing
-  if (isLoading || isInitializing) {
-    return (
-      <View style={styles.container}>
-        <SplashScreen />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <SplashScreen />
