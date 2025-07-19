@@ -14,7 +14,7 @@ import { Search, Filter, Bell, Zap } from 'lucide-react-native';
 import { Colors } from '@/constants/Colors';
 import { EventCard } from '@/components/EventCard';
 import { CategoryFilter } from '@/components/CategoryFilter';
-import { mockEvents } from '@/data/mockEvents';
+import { eventService } from '@/services/eventService';
 
 export default function DiscoverScreen() {
   const colorScheme = useColorScheme();
@@ -24,8 +24,16 @@ export default function DiscoverScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
-  const [events, setEvents] = useState(mockEvents);
+  const [events, setEvents] = useState<any[]>([]);
 
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    const eventsData = await eventService.getEvents();
+    setEvents(eventsData);
+  };
   const filteredEvents = events.filter(event => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          event.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -35,10 +43,9 @@ export default function DiscoverScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
+    loadEvents().finally(() => {
       setRefreshing(false);
-    }, 1000);
+    });
   };
 
   return (

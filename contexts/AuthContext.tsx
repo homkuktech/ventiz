@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/lib/supabase';
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 interface User {
   id: string;
@@ -10,10 +12,12 @@ interface User {
   major: string;
   isVerified: boolean;
   role: 'student' | 'admin';
+  avatarUrl?: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -28,175 +32,149 @@ interface SignupData {
   lastName: string;
   email: string;
   password: string;
+  university?: string;
+  major?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  USER: '@univent_user',
-  TOKEN: '@univent_token',
   ONBOARDING_COMPLETED: '@univent_onboarding_completed',
-};
-
-// Mock API functions - replace with actual API calls
-const mockAPI = {
-  login: async (email: string, password: string) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Mock validation
-    if (!email || !password) {
-      throw new Error('Email and password are required');
-    }
-    
-    if (!email.includes('@')) {
-      throw new Error('Please enter a valid email address');
-    }
-    
-    if (password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
-    }
-    
-    // Mock successful login
-    return {
-      user: {
-        id: '1',
-        email,
-        firstName: 'Alex',
-        lastName: 'Johnson',
-        university: 'University of Technology',
-        major: 'Computer Science',
-        isVerified: true,
-        role: 'student' as const,
-      },
-      token: 'mock_jwt_token_' + Date.now(),
-    };
-  },
-  
-  signup: async (userData: SignupData) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock validation
-    if (!userData.firstName || !userData.lastName || !userData.email || !userData.password) {
-      throw new Error('All fields are required');
-    }
-    
-    if (!userData.email.includes('@')) {
-      throw new Error('Please enter a valid email address');
-    }
-    
-    if (userData.password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
-    }
-    
-    // Mock email already exists check
-    if (userData.email === 'test@example.com') {
-      throw new Error('An account with this email already exists');
-    }
-    
-    // Mock successful signup
-    return {
-      user: {
-        id: '2',
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        university: 'University of Technology',
-        major: 'Computer Science',
-        isVerified: false,
-        role: 'student' as const,
-      },
-      token: 'mock_jwt_token_' + Date.now(),
-    };
-  },
-  
-  resendVerification: async (email: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { success: true };
-  },
-  
-  resetPassword: async (email: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    if (!email.includes('@')) {
-      throw new Error('Please enter a valid email address');
-    }
-    return { success: true };
-  },
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadStoredAuth();
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        loadUserProfile(session.user);
+      }
+      setIsLoading(false);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      if (session?.user) {
+        await loadUserProfile(session.user);
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const loadStoredAuth = async () => {
+  const loadUserProfile = async (supabaseUser: SupabaseUser) => {
     try {
-      const [storedUser, storedToken] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.USER),
-        AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
-      ]);
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', supabaseUser.id)
+        .single();
 
-      if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser));
+      if (error) {
+        console.error('Error loading user profile:', error);
+        return;
+      }
+
+      if (profile) {
+        setUser({
+          id: profile.id,
+          email: profile.email,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          university: profile.university,
+          major: profile.major,
+          isVerified: profile.is_verified,
+          role: profile.role,
+          avatarUrl: profile.avatar_url,
+        });
       }
     } catch (error) {
-      console.error('Error loading stored auth:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error loading user profile:', error);
     }
   };
 
   const login = async (email: string, password: string) => {
     try {
-      const { user: userData, token } = await mockAPI.login(email, password);
-      
-      // Store user data and token
-      await Promise.all([
-        AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData)),
-        AsyncStorage.setItem(STORAGE_KEYS.TOKEN, token),
-      ]);
-      
-      setUser(userData);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Login failed' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Login failed',
       };
     }
   };
 
   const signup = async (userData: SignupData) => {
     try {
-      const { user: newUser, token } = await mockAPI.signup(userData);
-      
-      // Store user data and token
-      await Promise.all([
-        AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser)),
-        AsyncStorage.setItem(STORAGE_KEYS.TOKEN, token),
-      ]);
-      
-      setUser(newUser);
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            university: userData.university || 'University of Technology',
+            major: userData.major || 'Computer Science',
+          },
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Create profile record
+      if (data.user) {
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: data.user.id,
+          email: userData.email,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          university: userData.university || 'University of Technology',
+          major: userData.major || 'Computer Science',
+          is_verified: false,
+          role: 'student',
+        });
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
+      }
+
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Signup failed' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Signup failed',
       };
     }
   };
 
   const logout = async () => {
     try {
-      await Promise.all([
-        AsyncStorage.removeItem(STORAGE_KEYS.USER),
-        AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
-      ]);
+      await supabase.auth.signOut();
       setUser(null);
+      setSession(null);
     } catch (error) {
       console.error('Error during logout:', error);
     }
@@ -204,32 +182,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resendVerification = async (email: string) => {
     try {
-      await mockAPI.resendVerification(email);
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to resend verification' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resend verification',
       };
     }
   };
 
   const resetPassword = async (email: string) => {
     try {
-      await mockAPI.resetPassword(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to reset password' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to reset password',
       };
     }
   };
 
   const value: AuthContextType = {
     user,
+    session,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!session,
     login,
     signup,
     logout,
@@ -237,11 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
